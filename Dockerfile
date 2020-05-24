@@ -30,7 +30,7 @@ WORKDIR /goseek-challenge
 
 COPY baselines/agents.py baselines/agents.py
 
-COPY baselines/config/shallow-agent.yaml agent.yaml
+COPY baselines/config/bug-agent.yaml agent.yaml
 RUN ls
 
 WORKDIR /goseek-challenge/Open3D
