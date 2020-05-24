@@ -1,3 +1,9 @@
+Test shallow agent with:
+```sh
+python eval.py --agent-config baselines/config/shallow-agent.yaml --episode-config config/check-ground-truth.yaml
+```
+
+
 # goseek-challenge
 
 Welcome to the GOSEEK challenge page, which is run in conjunction with the [Perception, Action, Learning Workshop](https://mit-spark.github.io/PAL-ICRA2020/) at [ICRA 2020](https://www.icra2020.org/competitions/goseek-challenge).

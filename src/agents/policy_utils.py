@@ -30,8 +30,6 @@ class PickupAgent():
         :param depth: depth information from the simulator.
         :return: bool for whether or not should use pickup
         """
-        segmentation, _, _ = np.split(segmentation, 3, axis=2) # Only first channel.
-        segmentation = np.squeeze(segmentation)
         if np.any(segmentation == self.target):
             depth = self.cam.max_depth_m * depth
             distance = np.multiply(self.inv_z, depth)

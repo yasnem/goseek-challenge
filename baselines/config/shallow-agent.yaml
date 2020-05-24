@@ -1,3 +1,5 @@
+name: ShallowAgent
+
 voxel_grid:
   debug: False # Choose if to visualize the grid in every step.
   channels: 1
