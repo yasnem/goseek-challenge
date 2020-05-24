@@ -1,0 +1,5 @@
+number_mini_batches: 1
+gamma: 0.995
+learning_rate: 0.00025
+save_freq: 1000
+policy: 'CnnLstmPolicy'  # CnnLnLstmPolicy

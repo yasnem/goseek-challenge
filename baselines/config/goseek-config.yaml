@@ -1,0 +1,96 @@
+voxel_grid:
+  debug: False # Choose if to visualize the grid in every step.
+  channels: 1
+  compute_target: false
+  params:
+    type: scalable # Uniform or scalable. Fixed grid or adaptive.
+    voxel_length_m: 0.1
+    truncation_m: 0.2 # Safe against 0.5 horizontal, 0.5 vertical case.
+    full_length_m: 10.0 # If fixed grid, the total size.
+    max_weight: 10.0 # At the moment the C++ side can not be changed.
+
+  local:
+    width_m: 1.2 # Width of local tsdf blocks.
+    height_upper_m: 0.3 # Upper Height of local tsdf blocks, 0.5 is when it reached the floor. (y points down)
+    height_lower_m: -0.1 # Lower Height of local tsdf blocks, -0.1 is when it's 0.1 meters above robot.
+    depth_m: 0.7 # Depth of local tsdf blocks.
+
+  camera:
+    width: 320
+    height: 240
+    fov: 60  # This is vertical fov in degrees.
+    h_fov: 80 # This is horizontal fov (not precise, use only for rasterization for the fov.
+    extrinsics: # Only support translation for now.
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    max_depth_m: 50.0 # Depth camera can perceive up to 50 meters in depth.
+    depth_truncation_m: 5.0  # Beyond which not considered
+    ransac_dist_thresh_m: 0.01 # For depth filling
+
+evaluation:
+  scene_ids: [2, 3, 4, 5]
+  task: navigation
+  n_episodes: 10
+  viz: False
+pickup:
+  min_observations: 1 # Minimum number of pixels within reach distance to consider execute pickup. 1 is enough in ground truth mode.
+  distance_threshold: 1.9 # Distance within which one can do pickup.
+  min_dist: 0.0 # minimum distance which one can do pickup
+
+training:
+  num_env: 1
+  scene_id: [1]
+  exp_name: default
+  task: goseek
+  timestamps: 500000 # 500k steps
+  ep_len: 400
+  auto_pickup: true # Train a policy that only deals with navigation and remove fruits directly.
+  log_interval: 1  # logging interval in terms of episodes not timesteps.
+  restart_on_collision: true
+  targets_num: 30
+
+agent:
+  type: sac
+  gamma: 0.995
+  learning_rate: 0.0003
+  buffer_size: 750000
+  gradient_steps: 1
+  policy: 'CnnPolicy'
+  net_arch:
+    - 128
+    - 64
+#  cnn_arch:
+#    - 16
+#    - 32
+#  cnn_feature_dim: 128 # Size of features from 3D CNN output.
+  batch_size: 32
+  save_freq: 5000
+  verbose: 1
+
+rewards:
+  - type: by_target_pursuit
+    weight: 0.1
+    angular_weight: 0.02
+  - type: by_collision
+    weight: -1
+  - type: by_decay
+    weight: -0.01
+
+#- type: by_forward_movement
+#  weight: 0.1
+  # Give reward if target class is observed.
+#  - type: by_observation
+#    weight: 0.5
+#    saturation_ratio: 0.002 # 150 pixels approximately.
+#    min_pixel: 5 # See at least 5 pixels of target class to consider it working.
+#  # Give reward if new voxels are discovered.
+#  - type: by_exploration
+#    weight: 0.8
+#    max_discovery: 20
+  # Punish distance to current target, this might be needed to make the network learn to pursuit the relative target
+  # in the feature space created by frontier. Either by penalizing the distance or rewwarding the reduction in one step.
+#  - type: by_movement
+#    weight: 0.05
+
+  # Give reward if target is observed. To be implemented.
