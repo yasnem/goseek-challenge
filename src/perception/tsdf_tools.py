@@ -1,7 +1,7 @@
 import numpy as np
 import open3d as od
-from common.tools import pose_to_transformation, map_to_RGB
-from perception.camera import GoseekCamera
+from src.common.tools import pose_to_transformation, map_to_RGB
+from src.perception.camera import GoseekCamera
 import math
 
 

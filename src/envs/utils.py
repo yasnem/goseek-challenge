@@ -3,8 +3,8 @@ from tesse_gym.tasks.navigation.navigation import Navigation
 from tesse_gym import get_network_config
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from tesse_gym.core.utils import set_all_camera_params
-from envs.tsdf_wrapper import GoseekTSDF, NavigationTSDF
-from common.tools import get_rewards_config
+from src.envs.tsdf_wrapper import GoseekTSDF, NavigationTSDF
+from src.common.tools import get_rewards_config
 
 
 scene_id = [1, 2, 3, 4, 5]  # list all available scenes

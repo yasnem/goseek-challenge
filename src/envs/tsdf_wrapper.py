@@ -1,11 +1,12 @@
 import open3d as o3d
 from gym import spaces
 import numpy as np
-from perception.tsdf_tools import VoxelGrid
-from common.tools import extract_segment_class, get_rewards_config, get_grid_config
+from src.perception.tsdf_tools import VoxelGrid
+from src.common.tools import extract_segment_class, get_rewards_config, \
+    get_grid_config
 from tesse_gym.tasks.goseek.goseek_full_perception import GoSeekFullPerception
 from tesse_gym.tasks.navigation.navigation import Navigation
-from envs.rewards import construct_reward
+from src.envs.rewards import construct_reward
 from tesse.msgs import DataResponse, RemoveObjectsRequest, ObjectsRequest
 from typing import Callable, Dict, Tuple, Union, Optional
 from collections import deque
@@ -14,6 +15,7 @@ from tesse_gym.core.utils import NetworkConfig, set_all_camera_params
 
 import defusedxml.ElementTree as ET
 import math
+
 
 class TsdfBase():
     def __init__(self, rewards, grid):
@@ -49,6 +51,7 @@ class TsdfBase():
         self.observed_q = deque()
         self.current_target = None
         self.target_relative = None
+
 
 class GoseekTSDF(GoSeekFullPerception, TsdfBase):
     def __init__(
