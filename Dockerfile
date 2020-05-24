@@ -24,8 +24,7 @@ from goseek-base:latest
 RUN apt-get update && apt-get install -y build-essential
 RUN apt-get update && apt-get -y install cmake
 RUN rm -r -f /goseek-challenge
-git clone https://github.com/yasnem/goseek-challenge.git
-/goseek-challenge --recursive
+RUN git clone https://github.com/yasnem/goseek-challenge.git /goseek-challenge --recursive
 
 WORKDIR /goseek-challenge
 
