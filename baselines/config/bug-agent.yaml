@@ -1,4 +1,4 @@
-name: ShallowAgent
+name: BugAgent
 
 voxel_grid:
   params:
