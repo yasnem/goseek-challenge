@@ -21,8 +21,41 @@
 
 from goseek-base:latest
 
+RUN apt-get update && apt-get install -y build-essential
+RUN apt-get update && apt-get -y install cmake
+RUN rm -r -f /goseek-challenge
+git clone https://github.com/yasnem/goseek-challenge.git
+/goseek-challenge --recursive
+
 WORKDIR /goseek-challenge
 
 COPY baselines/agents.py baselines/agents.py
 
-COPY baselines/config/random-agent.yaml agent.yaml
+COPY baselines/config/shallow-agent.yaml agent.yaml
+RUN ls
+
+WORKDIR /goseek-challenge/Open3D
+
+RUN mkdir build
+RUN apt-get install -y xorg-dev libglu1-mesa-dev libgl1-mesa-glx
+RUN apt-get install -y libglew-dev
+RUN apt-get install -y libglfw3-dev
+RUN apt-get install -y libeigen3-dev
+RUN apt-get install -y libpng-dev
+RUN apt-get install -y libsdl2-dev
+RUN apt-get install -y python-dev python-tk
+RUN apt-get install -y python3-dev python3-tk
+RUN apt-get install -y libglu1-mesa-dev
+RUN apt-get install -y libc++-7-dev
+RUN apt-get install -y libc++abi-7-dev
+RUN apt-get install -y ninja-build
+RUN apt-get install -y libxi-dev
+
+RUN ls
+
+WORKDIR /goseek-challenge/Open3D/build
+RUN cmake ..
+RUN make -j4
+RUN make install-pip-package
+
+WORKDIR /goseek-challenge
