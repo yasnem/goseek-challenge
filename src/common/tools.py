@@ -31,13 +31,13 @@ def extract_segment_class(segmentation_np):
 
 
 def map_to_RGB(i):
-    """Colormap from scalar to rgb, Blue is 0 and Red is 1, Green is middle."""
+    """Colormap from scalar to rgb, Blue is 1 and Red is 0, Green is middle."""
     # https: // www.particleincell.com / 2014 / colormap /
     ## TODO(jd): remove this exception once find out why.
     if (i>1 or i<0 or i!= i):
         return np.array([0, 0, 255], dtype="uint8")
     assert 0 <= i <= 1, "mapping only works from 0 to 1 but {%f}"%(i)
-    group = (1-i)*4
+    group = i*4
     group_id = math.floor(group)
     value = math.floor(255*(group - group_id))
     if not group_id:

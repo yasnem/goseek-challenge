@@ -1,6 +1,6 @@
 import numpy as np
 from src.perception.camera import GoseekCamera
-
+import math
 
 class PickupAgent():
     def __init__(self, pickup_config, camera_config):
@@ -19,8 +19,8 @@ class PickupAgent():
         and right edges. Shrink by 15% both sides -> 24 cols both sides.
         """
         self.image_mask = np.ones((self.cam.height, self.cam.width))
-        self.image_mask[:, :25] = 0
-        self.image_mask[:, -25:] = 0
+        self.image_mask[:, :30] = 0
+        self.image_mask[:, -30:] = 0
 
     def decide_pickup(self, segmentation, depth):
         """
@@ -37,3 +37,19 @@ class PickupAgent():
                           np.logical_and(self.min_dist <= distance, distance <= self.threshold))) >= self.min_observations
         else:
             return False
+
+
+def get_target_relative(target, pose2d):
+    """ Get the target pose by frontier computation. """
+    # Function signature of get target is pose3d and yaw orientation.
+    # make sure relative orientation is within [-pi, pi]
+    relative_orientation = target[2] - pose2d[2]
+    if relative_orientation > math.pi:
+        relative_orientation -= 2*math.pi
+    if relative_orientation < -math.pi:
+        relative_orientation += 2 * math.pi
+    theta = pose2d[2]
+    R_r_w = np.asarray([[math.cos(theta), math.sin(theta)], [-math.sin(theta), math.cos(theta)]])
+    rel_target = np.matmul(R_r_w, target[:2]-pose2d[:2])
+    """ The principal component direction is currently unused. """
+    return np.asarray([rel_target[0], rel_target[1], relative_orientation])
