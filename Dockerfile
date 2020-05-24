@@ -31,7 +31,6 @@ WORKDIR /goseek-challenge
 COPY baselines/agents.py baselines/agents.py
 
 COPY baselines/config/bug-agent.yaml agent.yaml
-RUN ls
 
 WORKDIR /goseek-challenge/Open3D
 
@@ -49,8 +48,6 @@ RUN apt-get install -y libc++-7-dev
 RUN apt-get install -y libc++abi-7-dev
 RUN apt-get install -y ninja-build
 RUN apt-get install -y libxi-dev
-
-RUN ls
 
 WORKDIR /goseek-challenge/Open3D/build
 RUN cmake ..
