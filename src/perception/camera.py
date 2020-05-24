@@ -1,6 +1,8 @@
 import math
 import open3d as o3d
 import numpy as np
+from scipy.ndimage.measurements import label
+import cv2
 
 class GoseekCamera():
     def __init__(self, config):
@@ -24,6 +26,7 @@ class GoseekCamera():
         self.extrinsic = np.array([[1.0, 0, 0, extrinsics.get('x', -0.05)], [0, 1.0, 0.0, extrinsics.get('y', 0)],
                                    [0, 0.0, 1.0, extrinsics.get('z', 0.0)], [0, 0, 0, 1.0]], dtype='float64')
         self.max_depth_m = config.get('max_depth_m', 50.0)
+        self.fill_depth = config.get('fill_depth', False)
         self.k_meter_to_millimeter = 1000
         self.depth_truncation_m = config.get('depth_truncation_m', 5.0)
         self.ransac_dist_thresh_m = config.get('ransac_dist_thresh_m', 0.01)
@@ -31,6 +34,8 @@ class GoseekCamera():
         self.TARGETCLASS = 10
         self.WALL_CLS = 2
         self.default_invalid_depth = 0.25
+        self.invalid_cluster_size = 50
+        self.wall_tolerance = 0.08
         fx, fy = self.intrinsic.get_focal_length()
         ux, uy = self.intrinsic.get_principal_point()
         Kinv = np.linalg.inv(np.asarray([[fx, 0, ux], [0, fy, uy], [0, 0, 1]]))
@@ -41,7 +46,8 @@ class GoseekCamera():
                 self.unit_vectors[v, u, :] = unit_vector / np.linalg.norm(unit_vector)
 
     def convertToO3d(self, rgb, depth, segmentation):
-        depth = self.fillInvalidDepth(segmentation, depth)
+        if self.fill_depth:
+            depth = self.fillInvalidDepth(segmentation, depth)
         color = o3d.geometry.Image(rgb)
         depth = o3d.geometry.Image((self.k_meter_to_millimeter * self.max_depth_m * depth).astype('float32'))
         # Convert to single channel np, force-copy for consecutive buffer, and convert to open3d image type.
@@ -62,7 +68,17 @@ class GoseekCamera():
     # This probably needs to be adapted for kimera env.
     def fillInvalidDepth(self, segmentation, depth):
         mask = depth == 0
-        # Everything valid
+        labeled, ncomponents = label(mask, np.ones((3, 3), dtype=np.int))
+        large_areas = []
+        for i in range(ncomponents):
+            # If this is a large cluster of invalid depth.
+            if np.sum(labeled == i) > self.invalid_cluster_size:
+                large_areas.append(i)
+            else:
+                depth = cv2.inpaint(depth.astype('float32'), (labeled == i).astype('uint8'), 3, cv2.INPAINT_TELEA)
+                mask = np.logical_and(mask, np.logical_not(labeled == i))
+
+        # Everything else needs to be filled.
         if np.sum(mask) == 0:
             return depth
         wall = segmentation==self.WALL_CLS
@@ -79,9 +95,8 @@ class GoseekCamera():
         neighbors = np.logical_and(neighbors, np.logical_not(mask))
         neighbors = np.logical_and(neighbors, wall)
         if np.sum(neighbors) < 3:
-            print("Too little valid neighbors to estimate proper depth. you are screwed. Assign 0.25 to all.")
-            depth[mask] = self.default_invalid_depth / self.max_depth_m
-            return depth
+            print("Too little valid neighbors to estimate proper depth. you are screwed. ")
+            return cv2.inpaint(depth.astype('float32'), mask.astype('uint8'), 3, cv2.INPAINT_TELEA)
         # Neighbors are the point mask that are direct neighbors to the missing segments.
         depth_neighbors = np.zeros_like(depth)
         depth_neighbors[neighbors] = depth[neighbors]
@@ -91,26 +106,20 @@ class GoseekCamera():
         plane_model, inliers = cloud.segment_plane(distance_threshold=self.ransac_dist_thresh_m,
                                                  ransac_n=3,
                                                  num_iterations=250)
-        # inlier_cloud = cloud.select_by_index(inliers)
-        # inlier_cloud.paint_uniform_color([1.0, 0, 0])
-        #
-        # outlier_cloud = cloud.select_by_index(inliers, invert=True)
-        # o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud])
         if np.sum(inliers) < 3:
-            print("Ransac failed. you are screwed. Assign 0.25 to all.")
-            depth[mask] = self.default_invalid_depth / self.max_depth_m
-            return depth
+            print("Too little valid neighbors to estimate proper depth. you are screwed. ")
+            return cv2.inpaint(depth.astype('float32'), mask.astype('uint8'), 3, cv2.INPAINT_TELEA)
         [a, b, c, d] = plane_model
-        if abs(b)>0.02:
-            print("doesnot look like a wall. Assing max distance to all.")
-            depth[mask] = self.default_invalid_depth / self.max_depth_m
-            return depth
+        if abs(b) > self.wall_tolerance:
+            print("Too little valid neighbors to estimate proper depth. you are screwed. ")
+            return cv2.inpaint(depth.astype('float32'), mask.astype('uint8'), 3, cv2.INPAINT_TELEA)
         # Now project the plane to image.
         for u in range(self.width):
             for v in range(self.height):
                 if mask[v, u]:
                     dist = -d / np.dot(self.unit_vectors[v, u, :], np.asarray([a, b, c])) / self.k_meter_to_millimeter
                     depth[v, u] = dist * self.unit_vectors[v, u, 2] / self.max_depth_m if dist > 0 else 0
+                    # The frontier still screws up as soon as there are some invalid observations far away.
         return depth
 
 

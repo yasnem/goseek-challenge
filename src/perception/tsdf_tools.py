@@ -1,6 +1,7 @@
 import numpy as np
 import open3d as od
 from src.common.tools import pose_to_transformation, map_to_RGB
+from src.common.visualization import AgentViz
 from src.perception.camera import GoseekCamera
 import math
 
@@ -16,7 +17,6 @@ class VoxelGrid():
         assert self._truncation_m < 1, \
             "Currently truncation distance must be smaller than 1 as -1 is considered unobserved"
         config_local = config['local']
-        self.channels = config['channels']
         self._width_m = config_local.get('width_m', 0.6)  # region of interest
         self._depth_m = config_local.get('depth_m', 0.6)  # region of interest
         # The coordinate origin is at robot top height, which is 0.5 meters above floor, y pointing downwards.
@@ -30,7 +30,6 @@ class VoxelGrid():
         self.grid_size = (int(np.ceil(self._width_m / self._voxel_length_m)),
                           int(np.ceil(self._height_m / self._voxel_length_m)),
                           int(np.ceil(self._depth_m / self._voxel_length_m)))
-        self.compute_target = config['compute_target']
         # The class index of interest.
         self.target_class = 10
         self.unobserved_class = 11
@@ -100,6 +99,23 @@ class VoxelGrid():
         # tsdf[np.where(tsdf == 0)] = -1.
         return tsdf
 
+    def is_free_ahead(self, safety_dist, unobserved_as_free=False):
+        # Make sure no collision can happen between the current position and 0.5 m ahead
+        assert self.tsdf_grid.get_size()[2] <= (0.5/self._voxel_length_m)
+        assert safety_dist > 0
+        tsdf = self.get_tsdf()
+        # Mark the first depth dimension free because the robot is assumed to be not colliding.
+        tsdf[:, :, 0] = 1
+        if unobserved_as_free:
+            tsdf[np.where(tsdf == 0)] = 1
+
+        return np.all(tsdf > safety_dist)
+
+    def visualize(self, pose):
+        od.visualization.draw_geometries([self.get_mesh(),
+                                          self.feature_as_cloud(self.get_tsdf(), -1, 1),
+                                          *AgentViz().get_visuals(pose)])
+
     def get_observed_voxels(self):
         return self._volume.observed_voxels()
 
@@ -122,12 +138,10 @@ class VoxelGrid():
         return weights
 
     def get_target(self, pose2d):
-        assert self.compute_target
         centroid_flag = self._volume.get_target([pose2d[0], 0.0, pose2d[1]], pose2d[2])
         relative_position = np.asarray([centroid_flag[0] - pose2d[0], centroid_flag[2] - pose2d[1]])
         # This is the desired orientation of the z axis.
         orientation = math.atan2(relative_position[0], relative_position[1])
-        print("Use fov frontier: ", centroid_flag[3], " tie breaking: ", centroid_flag[4], " jps status ", centroid_flag[5])
         # orientation -= math.pi /2
         # if orientation > math.pi:
         #     orientation -= 2* math.pi
@@ -181,10 +195,10 @@ class VoxelGrid():
         fov_frontier.paint_uniform_color([0.9, 0.1, 0.1])
         return fov_frontier
 
-    def feature_as_cloud(self, feature):
+    def feature_as_cloud(self, feature, minimal = None, maximal = None):
         """ Visualize a TSDF (by default the last one generated). """
-        min_feature = math.floor(np.amin(feature))
-        max_feature = math.ceil(np.amax(feature))
+        min_feature = minimal if minimal else math.floor(np.amin(feature))
+        max_feature = maximal if maximal else math.ceil(np.amax(feature))
         feature = np.clip(feature, min_feature, max_feature)
         vis = od.geometry.PointCloud()
 
