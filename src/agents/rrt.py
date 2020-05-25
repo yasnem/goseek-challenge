@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import copy
 import random
 import math
-from src.perception.tsdf_tools import VoxelGrid
+from src.perception.tsdf_tools import VoxelGrid, viz_two_grid
 # This is 8 degrees
 angular_step = 8 / 180 * math.pi
 forward_step = 0.5
@@ -32,8 +32,9 @@ class TreeNode(Node, NodeMixin):
         if children:
             self.children = children
 
+    # Punish rotation more than forward motion.
     def steps_needed(self):
-        return 1 if self.action == 0 else min(self.action, angular_choices + 1 - self.action)
+        return 1 if self.action == 0 else 2
 
 
 def after_action(pose, action):
@@ -125,6 +126,7 @@ class RRT:
         nxt_grid = copy.deepcopy(node.grid)
         nxt_grid.integrate_rgbd(nxt_grid.render_from(new_pose), new_pose)
         cur_reward = nxt_grid.get_observed_voxels() - cur_observed
+
         return TreeNode(name=name, action=action, grid=nxt_grid, pose=new_pose,
                         level=level, reward=cur_reward, parent=node)
 

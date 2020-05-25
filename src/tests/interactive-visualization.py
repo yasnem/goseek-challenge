@@ -2,8 +2,7 @@ from common.tools import get_config
 from envs.utils import make_goseek_scene, make_navigation_scene
 import os
 import open3d as o3d
-from common.visualization import AgentViz
-from agents.policy_utils import PickupAgent
+from src.common.visualization import AgentViz
 
 configs = get_config("debug")
 training_config = configs['training']

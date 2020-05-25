@@ -54,7 +54,7 @@ class VoxelGrid():
 
         # Configure the fov for frontier computation.
         self._volume.setFOV(self.camera.h_fov, self.camera.fov,
-                            self._height_robot_m, self._height_lower_m, self._rendered_invalid)
+                            self._height_upper_m, self._height_lower_m, self._rendered_invalid)
 
 
     def reset(self):
@@ -90,8 +90,8 @@ class VoxelGrid():
         mesh = self.get_mesh()
         mesh = mesh.transform(np.linalg.inv(pose_to_transformation(pose2d)))
         rendered_rgbd = mesh.render_rgbd_image(self.camera.intrinsic)
-        modify = np.asarray(rendered_rgbd.depth)
-        modify[np.where(modify == 0)] = self._rendered_invalid
+        # modify = np.asarray(rendered_rgbd.depth)
+        # modify[np.where(modify == 0)] = self._rendered_invalid
         return rendered_rgbd
 
     def observe_local_tsdf(self, pose2d):
@@ -117,7 +117,7 @@ class VoxelGrid():
         return np.all(tsdf > safety_dist)
 
     def visualize(self, pose):
-        od.visualization.draw_geometries([self.get_mesh(),
+        od.visualization.draw_geometries([self.get_mesh(), self.get_tsdf_voxel_grid(),
                                           *AgentViz().get_visuals(pose)])
 
     def get_observed_voxels(self):
@@ -147,3 +147,9 @@ class VoxelGrid():
         return od.geometry.PointCloud.create_from_rgbd_image(image=self.camera.convertToO3dRGBD(rgb, depth),
                                                              intrinsic=self.camera.intrinsic,
                 extrinsic=np.linalg.inv(np.matmul(self.camera.extrinsic, pose_to_transformation(pose2d))))
+
+def viz_two_grid(vol1, vol2, pose1, pose2):
+    viz1 = [vol1.get_mesh(), vol1.get_tsdf_voxel_grid(), *AgentViz().get_visuals(pose1)]
+    viz2 = [vol2.get_mesh(), vol2.get_tsdf_voxel_grid(), *AgentViz().get_visuals(pose2)]
+    viz2[1].paint_uniform_color([1,0,0])
+    od.visualization.draw_geometries([*viz1, *viz2])

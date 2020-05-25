@@ -9,13 +9,13 @@ RRT:
 
 voxel_grid:
   params:
-    type: uniform # Uniform or scalable. Fixed grid or adaptive.
+    type: scalable # Uniform or scalable. Fixed grid or adaptive.
     voxel_length_m: 0.1
     truncation_m: 0.2 # Safe against 0.5 horizontal, 0.5 vertical case.
     full_length_m: 20
   local:
     width_m: 0.2 # Width of local tsdf blocks.
-    height_upper_m: 0.2 # Upper Height of local tsdf blocks, 0.5 is when it reached the floor. (y points down)
+    height_upper_m: 0.3 # Upper Height of local tsdf blocks, 0.5 is when it reached the floor. (y points down)
     height_lower_m: -0.1 # Lower Height of local tsdf blocks, -0.1 is when it's 0.1 meters above robot.
     depth_m: 0.5 # Depth of local tsdf blocks.
 
