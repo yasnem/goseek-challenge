@@ -14,6 +14,9 @@ voxel_grid:
     height_lower_m: -0.1 # Lower Height of local tsdf blocks, -0.1 is when it's 0.1 meters above robot.
     depth_m: 0.5 # Depth of local tsdf blocks.
 
+  render:
+    rendered_invalid: 10.0 # Assume new observations with appear at this distance.
+
   camera:
     width: 320
     height: 240

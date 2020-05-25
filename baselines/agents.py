@@ -44,7 +44,6 @@ class ShallowAgent(Agent):
         self.target_class = 10
         self.last_action = None
         self.grid = VoxelGrid(config['voxel_grid'])
-
         self.rgb = None
         self.segmentation = None
         self.depth = None
@@ -53,6 +52,10 @@ class ShallowAgent(Agent):
     def reset(self) -> None:
         self.grid.reset()
         self.last_action = None
+        self.rgb = None
+        self.segmentation = None
+        self.depth = None
+        self.pose = None
         pass
 
     def _parse_observations(self, observations):
@@ -68,7 +71,6 @@ class ShallowAgent(Agent):
                             segmentation=self.segmentation,
                             depth=self.depth,
                             pose2d=self.pose)
-        self.grid.observe_local(self.pose)
 
     def act(self, observation: np.ndarray) -> int:
         self._parse_observations(observation)
@@ -91,7 +93,7 @@ class BugAgent(ShallowAgent):
         super().__init__(config)
 
     def _plan(self):
-        return 0 if self.grid.is_free_ahead(0.2, unobserved_as_free=True) else 1
+        return 0 if self.grid.is_free_ahead(self.pose, 0.2, unobserved_as_free=True) else 1
 
 
 def translate_action(action):
@@ -109,10 +111,11 @@ class NbvAgent(ShallowAgent):
     """ Next best view algorithm """
     def __init__(self, config):
         super().__init__(config)
-        self.tree_depth = config['tree_depth']
-        self.branch = config['branch']
-        self.depth_limit = config['depth_limit']
-        self.decay = config['decay']
+        rrt_config = config['RRT']
+        self.tree_depth = rrt_config['tree_depth']
+        self.branch = rrt_config['branch']
+        self.depth_limit = rrt_config['depth_limit']
+        self.decay = rrt_config['decay']
         # This stores the current planned action.
         self.planned_actions = []
 
@@ -122,15 +125,17 @@ class NbvAgent(ShallowAgent):
             rrt = RRT(self.branch, self.tree_depth, self.grid, self.pose, self.decay, verbose=True)
             # Get reward and actions.
             found, best_reward, next_action = rrt.visit()
-            while not found and rrt.level() < self.depth_limit:
+            while not found and rrt.level < self.depth_limit:
                 rrt.grow()
                 found, best_reward, next_action = rrt.visit()
             # Translate next action into executions.
             if not found:
                 print("Failed to find best view. I become a bug.")
-                self.planned_actions = [0] if self.grid.is_free_ahead(0.2, unobserved_as_free=True) else [1]
+                self.planned_actions = [0] if self.grid.is_free_ahead(self.pose, 0.2, unobserved_as_free=True) else [1]
             else:
                 self.planned_actions = translate_action(next_action)
 
-        # Return the first action.
-        return self.planned_actions[0]
+
+        # Return an action.
+        action = self.planned_actions.pop()
+        return action
