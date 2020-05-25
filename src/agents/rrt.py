@@ -16,7 +16,7 @@ class Node:
     # relative action to previous step. 0 is forward, 1 - 44 are turns, -1 is root
     action: int
     # current voxel grid.
-    current_grid: VoxelGrid
+    grid: VoxelGrid
     # absolute pose is a 3d list, x, z, yaw.  
     pose: list
     # level.
@@ -27,7 +27,7 @@ class Node:
 
 class TreeNode(Node, NodeMixin):
     def __init__(self, name, action, grid, pose, level, reward, parent=None, children=None):
-        super(Node, self).__init__(action, grid, pose, level, reward)
+        super(TreeNode, self).__init__(action=action, grid=grid, pose=pose, level=level, reward=reward)
         self.name = name
         self.parent = parent
         if children:
@@ -41,11 +41,12 @@ def after_action(pose, action):
     new_pose = pose.copy()
     if action == 0:
         # Move forward.
-        new_pose[:2] += forward_step * [math.sin(pose[2]), math.cos(pose[2])]
+        new_pose[0] += forward_step * math.sin(pose[2])
+        new_pose[1] += forward_step * math.cos(pose[2])
     else:
         new_pose[2] += action * angular_step
         if new_pose[2] > math.pi:
-            new_pose -= 2 * math.pi
+            new_pose[2] -= 2 * math.pi
     return new_pose
 
 
@@ -75,16 +76,15 @@ class RRT:
             print(treestr.ljust(8), node.action, node.reward, node.pose)
 
     def grow(self, level=1):
-        new_leaves = []
         for ith_level in range(self.level + 1, self.level + 1 + level):
+            new_leaves = []
             for node in self.leaves:
                 # Grow the given leaf.
                 # Attempt to move forward, check that the current is free.
                 node.grid.observe_local(node.pose)
                 if node.grid.is_free_ahead(self.safety, unobserved_as_free=True):
                     cur_name = 'L' + str(ith_level) + "#" + str(len(new_leaves)) + "Step"
-                    action = 0
-                    leaf_node = self._grow_from(node, action=possible_action, name=cur_name, level=ith_level)
+                    leaf_node = self._grow_from(node, action=0, name=cur_name, level=ith_level)
                     new_leaves.append(leaf_node)
 
                 # A root leaf or a translational leaf has to sample it's branches. 
@@ -103,16 +103,17 @@ class RRT:
                             cur_name = 'L' + str(ith_level) + "#" + str(len(new_leaves)) + "Rot"
                             leaf_node = self._grow_from(node, action=possible_action, name=cur_name, level=ith_level)
                             new_leaves.append(leaf_node)
-        # Update leaf and level info
-        self.leaves = new_leaves
-        self.level += 1
+            # Update leaf and level info
+            self.leaves = new_leaves.copy()
+        self.level += level
 
     # Make sure to copy the grid from previous node.
     def _grow_from(self, node, action, name, level):
         new_pose = after_action(node.pose, action)
         nxt_grid = copy.deepcopy(node.grid)
         cur_observed = nxt_grid.get_observed_voxels()
-        nxt_grid.integrate(nxt_grid.render_from(new_pose))
+        # Render and back insert the resulting images. TODO(jd): enable again.
+        # nxt_grid.integrate(nxt_grid.render_from(new_pose))
         cur_reward = nxt_grid.get_observed_voxels() - cur_observed
         return TreeNode(name=name, action=action, grid=nxt_grid, pose=new_pose,
                         level=level, reward=cur_reward, parent=node)
@@ -130,11 +131,12 @@ class RRT:
         def get_best_path(node, decay):
             if not len(node.children):
                 return [node], node.reward * (decay ** node.steps_needed())
-            rewards = [get_best_path(n, decay)[1] for n in node.children]
-            best_reward = max(rewards)
-            return get_best_path(node.children[rewards.index(best_reward)])[0].append(node), \
-                   (best_reward + node.reward) * (decay ** node.steps_needed())
+            rewards = [get_best_path(n, decay) for n in node.children]
+            sub_path, best_reward = max(rewards, key=lambda x: x[1])
+            sub_path.append(node)
+            return sub_path, (best_reward + node.reward) * (decay ** node.steps_needed())
 
         path, reward = get_best_path(self.tree, self.decay)
+        print(path)
         assert len(path) == self.level+1
         return True, reward, path[-2].action
