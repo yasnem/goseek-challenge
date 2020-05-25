@@ -1,0 +1,40 @@
+name: NbvAgent
+
+# Parameters for the RRT tree
+RRT:
+  tree_depth: 2
+  branch: 5 # Number of branches at each level
+  depth_limit: 4
+  decay: 0.95 # decay term for steps (more rotation is punished more than less rotation)
+
+voxel_grid:
+  params:
+    type: scalable # Uniform or scalable. Fixed grid or adaptive.
+    voxel_length_m: 0.1
+    truncation_m: 0.2 # Safe against 0.5 horizontal, 0.5 vertical case.
+
+  local:
+    width_m: 0.3 # Width of local tsdf blocks.
+    height_upper_m: 0.3 # Upper Height of local tsdf blocks, 0.5 is when it reached the floor. (y points down)
+    height_lower_m: -0.1 # Lower Height of local tsdf blocks, -0.1 is when it's 0.1 meters above robot.
+    depth_m: 0.5 # Depth of local tsdf blocks.
+
+  camera:
+    width: 320
+    height: 240
+    fov: 60  # This is vertical fov in degrees.
+    h_fov: 80 # This is horizontal fov (not precise, use only for rasterization for the fov.
+    extrinsics: # Only support translation for now.
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    max_depth_m: 50.0 # Depth camera can perceive up to 50 meters in depth.
+    depth_truncation_m: 50.0  # Beyond which not considered
+    fill_depth: false
+    ransac_dist_thresh_m: 0.01 # For depth filling
+
+
+pickup:
+  min_observations: 1 # Minimum number of pixels within reach distance to consider execute pickup. 1 is enough in ground truth mode.
+  distance_threshold: 1.9 # Distance within which one can do pickup.
+  min_dist: 0.0 # minimum distance which one can do pickup

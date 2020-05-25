@@ -28,7 +28,7 @@ from tesse_gym.eval.agent import Agent
 from tesse_gym.tasks.goseek.goseek_full_perception import decode_observations
 from src.agents.policy_utils import PickupAgent, get_target_relative
 from src.perception.tsdf_tools import VoxelGrid
-
+from src.agents.rrt import RRT
 
 class ShallowAgent(Agent):
     """ Agent that goes straight when it can. """
@@ -45,6 +45,11 @@ class ShallowAgent(Agent):
         self.last_action = None
         self.grid = VoxelGrid(config['voxel_grid'])
 
+        self.rgb = None
+        self.segmentation = None
+        self.depth = None
+        self.pose = None
+
     def reset(self) -> None:
         self.grid.reset()
         self.last_action = None
@@ -53,29 +58,24 @@ class ShallowAgent(Agent):
     def _parse_observations(self, observations):
         rgb, segmentation, depth, pose = decode_observations(
             observations.reshape(1, -1))
-        rgb = np.asarray(rgb[0, :, :, :]*255, dtype=np.uint8)
-        segmentation = np.asarray(segmentation[0, :, :] * 10, dtype=np.uint8)
-        depth = np.asarray(depth[0, :, :], dtype=np.float32)
-        pose = np.asarray(pose[0, :], dtype=np.float32)
-        return rgb, segmentation, depth, pose
+        self.rgb = np.asarray(rgb[0, :, :, :]*255, dtype=np.uint8)
+        self.segmentation = np.asarray(segmentation[0, :, :] * 10, dtype=np.uint8)
+        self.depth = np.asarray(depth[0, :, :], dtype=np.float32)
+        self.pose = np.asarray(pose[0, :], dtype=np.float32)
 
-    def _process_observations(self, rgb, segmentation, depth, pose):
-        self.grid.integrate(rgb=rgb,
-                            segmentation=segmentation,
-                            depth=depth,
-                            pose2d=pose)
-        self.grid.observe_local(pose)
-        return rgb, segmentation, depth, pose
+    def _process_observations(self):
+        self.grid.integrate(rgb=self.rgb,
+                            segmentation=self.segmentation,
+                            depth=self.depth,
+                            pose2d=self.pose)
+        self.grid.observe_local(self.pose)
 
     def act(self, observation: np.ndarray) -> int:
-        rgb, segmentation, depth, pose = self._parse_observations(observation)
-        if self.last_action != 3 and self.pickup_agent.decide_pickup(segmentation, depth):
+        self._parse_observations(observation)
+        if self.last_action != 3 and self.pickup_agent.decide_pickup(self.segmentation, self.depth):
             action = 3
         else:
-            self._process_observations(rgb, segmentation, depth, pose)
-            # current_target = self.grid.get_target(pose)
-            # rel_target = get_target_relative(current_target, pose)
-            # Go straight unless occupied.
+            self._process_observations()
             action = self._plan()
 
         self.last_action = action
@@ -91,4 +91,46 @@ class BugAgent(ShallowAgent):
         super().__init__(config)
 
     def _plan(self):
-        return 0 if self.grid.is_free_ahead(0.2, unobserved_as_free=True) else 0
+        return 0 if self.grid.is_free_ahead(0.2, unobserved_as_free=True) else 1
+
+
+def translate_action(action):
+    if action == 0:
+        return [0]
+    elif action <= 22:
+        # Repeat turning right multiple times.
+        return [1]*action
+    else:
+        # Repeat turning left multiple times.
+        return [2]*(45-action)
+
+
+class NbvAgent(ShallowAgent):
+    """ Next best view algorithm """
+    def __init__(self, config):
+        super().__init__(config)
+        self.tree_depth = config['tree_depth']
+        self.branch = config['branch']
+        self.depth_limit = config['depth_limit']
+        self.decay = config['decay']
+        # This stores the current planned action.
+        self.planned_actions = []
+
+    def _plan(self):
+        if not len(self.planned_actions):
+            # Grow a tree at desired size.
+            rrt = RRT(self.branch, self.tree_depth, self.grid, self.pose, self.decay, verbose=True)
+            # Get reward and actions.
+            found, best_reward, next_action = rrt.visit()
+            while not found and rrt.level() < self.depth_limit:
+                rrt.grow()
+                found, best_reward, next_action = rrt.visit()
+            # Translate next action into executions.
+            if not found:
+                print("Failed to find best view. I become a bug.")
+                self.planned_actions = [0] if self.grid.is_free_ahead(0.2, unobserved_as_free=True) else [1]
+            else:
+                self.planned_actions = translate_action(next_action)
+
+        # Return the first action.
+        return self.planned_actions[0]
