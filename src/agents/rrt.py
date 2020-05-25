@@ -137,6 +137,6 @@ class RRT:
             return sub_path, (best_reward + node.reward) * (decay ** node.steps_needed())
 
         path, reward = get_best_path(self.tree, self.decay)
-        print(path)
         assert len(path) == self.level+1
+        # Get the node just before the root.
         return True, reward, path[-2].action
