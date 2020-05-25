@@ -25,8 +25,14 @@ RUN apt-get update && apt-get install -y build-essential
 RUN apt-get update && apt-get -y install cmake
 RUN rm -r -f /goseek-challenge
 RUN git clone https://github.com/yasnem/goseek-challenge.git /goseek-challenge --recursive
+RUN pip install anytree
+RUN pip install opencv-python
 
 WORKDIR /goseek-challenge
+
+RUN git fetch
+RUN git pull
+RUN git checkout feature/nbv-planner
 
 COPY baselines/agents.py baselines/agents.py
 
@@ -51,7 +57,7 @@ RUN apt-get install -y libxi-dev
 
 WORKDIR /goseek-challenge/Open3D/build
 RUN cmake ..
-RUN make -j4
+RUN make -j8
 RUN make install-pip-package
 
 WORKDIR /goseek-challenge
